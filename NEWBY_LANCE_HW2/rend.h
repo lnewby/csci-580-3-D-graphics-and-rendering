@@ -135,24 +135,18 @@ public:
 		vertex[v2][Z] = tempVertex[Z];
 	}
 
-	void sortVerticesByY(GzPointer *valueList, int direction) {
+	void sortVerticesByY(GzPointer *valueList) {
 		// TODO: Refactor to use mergesort
-
-		if (direction == ASCEND) {
-			GzCoord * vertex = (GzCoord*) valueList[0];		
-			if (vertex[one][Y] > vertex[two][Y]) {
-				swapVertices(vertex, one, two);
-			}
-			if (vertex[one][Y] > vertex[three][Y]) {
-				swapVertices(vertex, one, three);
-			}
-			if (vertex[two][Y] > vertex[three][Y]) {
-				swapVertices(vertex, two, three);
-			}
-		} else {
-			printf("descending");
+		GzCoord * vertex = (GzCoord*) valueList[0];		
+		if (vertex[one][Y] > vertex[two][Y]) {
+			swapVertices(vertex, one, two);
 		}
-		
+		if (vertex[one][Y] > vertex[three][Y]) {
+			swapVertices(vertex, one, three);
+		}
+		if (vertex[two][Y] > vertex[three][Y]) {
+			swapVertices(vertex, two, three);
+		}
 	}
 
 	float slope(GzCoord vertex1, GzCoord vertex2, int rise, int run) {
@@ -217,130 +211,134 @@ public:
 	}
 
 	void sortEdgesLeftOrRight() {
-		if (!edgeDDA[one].slopeX) {
-			if (edgeDDA[two].start[X] < edgeDDA[three].start[X]) {
+		float calulatedX = getXCoord(edgeDDA[three].start, edgeDDA[three].end, edgeDDA[one].end[Y]);
+		if (!edgeDDA[one].slopeX) { // check if top of triangle has 0 slope
+			if (edgeDDA[one].start[X] < edgeDDA[one].end[X]) {
+				edgeDDA[two].edgeOnLeft = false;
+				edgeDDA[three].edgeOnLeft = true;
+			} else {
 				edgeDDA[two].edgeOnLeft = true;
 				edgeDDA[three].edgeOnLeft = false;
 			}
+		} else if (!edgeDDA[two].slopeX) { // check if base of triangle has 0 slope
+			if (edgeDDA[two].start[X] < edgeDDA[two].end[X]) {
+				edgeDDA[one].edgeOnLeft = true;
+				edgeDDA[three].edgeOnLeft = false;
+			}
 			else {
-				edgeDDA[two].edgeOnLeft = false;
+				edgeDDA[one].edgeOnLeft = false;
 				edgeDDA[three].edgeOnLeft = true;
 			}
-		} else if (edgeDDA[one].slopeX > edgeDDA[three].slopeX) {
-			edgeDDA[one].edgeOnLeft = false;	
-			edgeDDA[two].edgeOnLeft = false;	
+		} else if (calulatedX < edgeDDA[one].end[X]) {
+			edgeDDA[one].edgeOnLeft = false;
+			edgeDDA[two].edgeOnLeft = false;
 			edgeDDA[three].edgeOnLeft = true;
-		} else { // L (1-2-3), and R (1-3)  
+		} else {
 			edgeDDA[one].edgeOnLeft = true;
 			edgeDDA[two].edgeOnLeft = true;
 			edgeDDA[three].edgeOnLeft = false;
 		}
 	}
 
+	void advanceSpan() {
+		spanDDA.current[X] = spanDDA.start[X];
+		spanDDA.current[Y] = spanDDA.start[Y];
+		spanDDA.current[Z] = spanDDA.start[Z];
+
+		// Advance span current position to left - most covered pixel(ceiling)
+		float newX = ceil(spanDDA.start[X]);
+		spanDDA.current[X] = newX;
+		spanDDA.current[Z] = getZCoord(spanDDA.start, spanDDA.end, newX);
+
+		// current triangle color
+		GzIntensity red = ctoi(flatcolor[RED]);
+		GzIntensity green = ctoi(flatcolor[GREEN]);
+		GzIntensity blue = ctoi(flatcolor[BLUE]);
+
+		// Interpolate span position and parameters (Z) until current position > end
+		while (spanDDA.current[X] <= spanDDA.end[X]) {
+			// Test interpolated-Z against FB-Z for each pixel - low Z wins
+			int currentPixelIndex = ARRAY(spanDDA.current[X], spanDDA.current[Y]);
+			if (currentPixelIndex < totalPixels && spanDDA.current[Z] < pixelbuffer[currentPixelIndex].z) {
+				GzPut(spanDDA.current[X], spanDDA.current[Y], red, green, blue, 1, spanDDA.current[Z]);
+			}
+
+			// Advance span current position
+			newX += 1;
+			spanDDA.current[X] = newX;
+			spanDDA.current[Z] = getZCoord(spanDDA.start, spanDDA.end, newX);
+		}
+	}
+
 	void advanceEdges() {
-		float deltaY = ceil(edgeDDA[one].start[Y]) - edgeDDA[one].start[Y];
+		// Advance (1-2) and (1-3) DDA current positions to top y-scan line (ceiling)
+		float newY = ceil(edgeDDA[one].start[Y]);
+		edgeDDA[one].current[X] = getXCoord(edgeDDA[one].start, edgeDDA[one].end, newY);
+		edgeDDA[one].current[Y] = newY;
+		edgeDDA[one].current[Z] = getZCoord(edgeDDA[one].start, edgeDDA[one].end, edgeDDA[one].current[X]);
+		edgeDDA[three].current[X] = getXCoord(edgeDDA[three].start, edgeDDA[three].end, newY);
+		edgeDDA[three].current[Y] = newY;
+		edgeDDA[three].current[Z] = getZCoord(edgeDDA[three].start, edgeDDA[three].end, edgeDDA[three].current[X]);
 
-		if (edgeDDA[one].current[Y] != edgeDDA[one].end[Y]) {
-			while (edgeDDA[one].current[Y] <= edgeDDA[one].end[Y]) {
-				// advance (1-2)
-				edgeDDA[one].current[Y] += deltaY;
-				edgeDDA[one].current[X] = getXCoord(edgeDDA[one].end, edgeDDA[one].start, edgeDDA[one].current[Y]); //+= edgeDDA[one].slopeX * deltaY;
-				edgeDDA[one].current[Z] = getZCoord(edgeDDA[one].end, edgeDDA[one].start, edgeDDA[one].current[X]); //edgeDDA[one].slopeZ * deltaY;
+		// Switch from 1 - 2 edge to 2 - 3 edge when current 1 - 2 edge position > Y(2)	
+		while (edgeDDA[one].current[Y] <= edgeDDA[one].end[Y]) {
+			// Setup span DDA on successive lines based on edge DDA position values
+			// Set span DDA current and end positions to right and left edge values 
+			spanDDA.start[X] = edgeDDA[one].edgeOnLeft ? edgeDDA[one].current[X] : edgeDDA[three].current[X];
+			spanDDA.start[Y] = edgeDDA[one].edgeOnLeft ? edgeDDA[one].current[Y] : edgeDDA[three].current[Y];
+			spanDDA.start[Z] = edgeDDA[one].edgeOnLeft ? edgeDDA[one].current[Z] : edgeDDA[three].current[Z];
 
-				// advance (1-3)
+			spanDDA.end[X] = edgeDDA[one].edgeOnLeft ? edgeDDA[three].current[X] : edgeDDA[one].current[X];
+			spanDDA.end[Y] = edgeDDA[one].edgeOnLeft ? edgeDDA[three].current[Y] : edgeDDA[one].current[Y];
+			spanDDA.end[Z] = edgeDDA[one].edgeOnLeft ? edgeDDA[three].current[Z] : edgeDDA[one].current[Z];
 
-				edgeDDA[three].current[Y] += deltaY;
-				edgeDDA[three].current[X] = getXCoord(edgeDDA[three].end, edgeDDA[three].start, edgeDDA[three].current[Y]); //edgeDDA[three].slopeX * deltaY;
-				edgeDDA[three].current[Z] = getZCoord(edgeDDA[three].end, edgeDDA[three].start, edgeDDA[three].current[X]); //edgeDDA[three].slopeZ * deltaY;
+			advanceSpan();
 
-				// setup span DDA
-				spanDDA.start[X] = (edgeDDA[one].edgeOnLeft) ? edgeDDA[one].current[X] : edgeDDA[three].current[X];
-				spanDDA.start[Y] = edgeDDA[one].current[Y];
-				spanDDA.start[Z] = (edgeDDA[one].edgeOnLeft) ? edgeDDA[one].current[Z] : edgeDDA[three].current[Z];
+			// Advance (1-2) and (1-3) DDA current positions
+			newY += 1;
+			edgeDDA[one].current[X] = getXCoord(edgeDDA[one].start, edgeDDA[one].end, newY);
+			edgeDDA[one].current[Y] = newY;
+			edgeDDA[one].current[Z] = getZCoord(edgeDDA[one].start, edgeDDA[one].end, edgeDDA[one].current[X]);
 
-				spanDDA.end[X] = (edgeDDA[one].edgeOnLeft) ? edgeDDA[three].current[X] : edgeDDA[one].current[X];
-				spanDDA.end[Y] = edgeDDA[one].current[Y];
-				spanDDA.end[Z] = (edgeDDA[one].edgeOnLeft) ? edgeDDA[three].current[Z] : edgeDDA[one].current[Z];
-
-				spanDDA.current[X] = spanDDA.start[X];
-				spanDDA.current[Y] = spanDDA.start[Y];
-				spanDDA.current[Z] = spanDDA.start[Z];
-
-				spanDDA.slopeZ = slope(spanDDA.end, spanDDA.start, Z, X);
-
-				float deltaX = ceil(spanDDA.start[X]) - spanDDA.start[X];
-
-				// get triangle color
-				GzIntensity red = ctoi(flatcolor[RED]);
-				GzIntensity green = ctoi(flatcolor[GREEN]);
-				GzIntensity blue = ctoi(flatcolor[BLUE]);
-
-				// Advance span
-				while (spanDDA.current[X] <= spanDDA.end[X]) {
-					spanDDA.current[X] += deltaX;
-					spanDDA.current[Z] = getZCoord(spanDDA.start, spanDDA.end, spanDDA.current[X]); // deltaX * spanDDA.slopeZ;
-
-					int pixelBufferIndex = ARRAY((int)spanDDA.current[X], (int)spanDDA.current[Y]);
-					if (pixelBufferIndex < totalPixels) { // cull pixels that are not on screen
-						if (spanDDA.current[Z] < pixelbuffer[pixelBufferIndex].z) {
-							GzPut(spanDDA.current[X], spanDDA.current[Y], red, green, blue, 1, spanDDA.current[Z]);
-						}
-					}
-					deltaX = 1.0;
-				}
-				deltaY = 1.0;
-			}
+			edgeDDA[three].current[X] = getXCoord(edgeDDA[three].start, edgeDDA[three].end, newY);
+			edgeDDA[three].current[Y] = newY;
+			edgeDDA[three].current[Z] = getZCoord(edgeDDA[three].start, edgeDDA[three].end, edgeDDA[three].current[X]);
 		}
-		
+
+		// Advance (2-3) and (1-3) DDA current positions to top y-scan line (ceiling)
+		newY = ceil(edgeDDA[two].start[Y]);
+		edgeDDA[two].current[X] = getXCoord(edgeDDA[two].start, edgeDDA[two].end, newY);
+		edgeDDA[two].current[Y] = newY;
+		edgeDDA[two].current[Z] = getZCoord(edgeDDA[two].start, edgeDDA[two].end, edgeDDA[two].current[X]);
+		edgeDDA[three].current[X] = getXCoord(edgeDDA[three].start, edgeDDA[three].end, newY);
+		edgeDDA[three].current[Y] = newY;
+		edgeDDA[three].current[Z] = getZCoord(edgeDDA[three].start, edgeDDA[three].end, edgeDDA[three].current[X]);
+
+		// End advance when current 2 - 3 edge position > Y(3)	
 		while (edgeDDA[two].current[Y] <= edgeDDA[two].end[Y]) {
-			// advance (2-3)
-			edgeDDA[two].current[Y] += deltaY;
-			edgeDDA[two].current[X] = getXCoord(edgeDDA[two].end, edgeDDA[two].start, edgeDDA[two].current[Y]);
-			edgeDDA[two].current[Z] = getZCoord(edgeDDA[two].end, edgeDDA[two].start, edgeDDA[two].current[X]);
-		
+			// Setup span DDA on successive lines based on edge DDA position values
+			// Set span DDA current and end positions to right and left edge values 
+			spanDDA.start[X] = edgeDDA[two].edgeOnLeft ? edgeDDA[two].current[X] : edgeDDA[three].current[X];
+			spanDDA.start[Y] = edgeDDA[two].edgeOnLeft ? edgeDDA[two].current[Y] : edgeDDA[three].current[Y];
+			spanDDA.start[Z] = edgeDDA[two].edgeOnLeft ? edgeDDA[two].current[Z] : edgeDDA[three].current[Z];
 
-			// advance (1-3)
-			edgeDDA[three].current[Y] += deltaY;
-			edgeDDA[three].current[X] = getXCoord(edgeDDA[three].end, edgeDDA[three].start, edgeDDA[three].current[Y]);
-			edgeDDA[three].current[Z] = getZCoord(edgeDDA[three].end, edgeDDA[three].start, edgeDDA[three].current[X]);
+			spanDDA.end[X] = edgeDDA[two].edgeOnLeft ? edgeDDA[three].current[X] : edgeDDA[two].current[X];
+			spanDDA.end[Y] = edgeDDA[two].edgeOnLeft ? edgeDDA[three].current[Y] : edgeDDA[two].current[Y];
+			spanDDA.end[Z] = edgeDDA[two].edgeOnLeft ? edgeDDA[three].current[Z] : edgeDDA[two].current[Z];
 
-			// setup span DDA
-			spanDDA.start[X] = (edgeDDA[two].edgeOnLeft) ? edgeDDA[two].current[X] : edgeDDA[three].current[X];
-			spanDDA.start[Y] = edgeDDA[two].current[Y];
-			spanDDA.start[Z] = (edgeDDA[two].edgeOnLeft) ? edgeDDA[two].current[Z] : edgeDDA[three].current[Z];
+			advanceSpan();
 
-			spanDDA.end[X] = (edgeDDA[two].edgeOnLeft) ? edgeDDA[three].current[X] : edgeDDA[two].current[X];
-			spanDDA.end[Y] = edgeDDA[two].current[Y];
-			spanDDA.end[Z] = (edgeDDA[two].edgeOnLeft) ? edgeDDA[three].current[Z] : edgeDDA[two].current[Z];
+			// Advance (1-2) and (1-3) DDA current positions
+			newY += 1;
+			edgeDDA[two].current[X] = getXCoord(edgeDDA[two].start, edgeDDA[two].end, newY);
+			edgeDDA[two].current[Y] = newY;
+			edgeDDA[two].current[Z] = getZCoord(edgeDDA[two].start, edgeDDA[two].end, edgeDDA[two].current[X]);
 
-			spanDDA.current[X] = spanDDA.start[X];
-			spanDDA.current[Y] = spanDDA.start[Y];
-			spanDDA.current[Z] = spanDDA.start[Z];
- 
-			spanDDA.slopeZ = slope(spanDDA.end, spanDDA.start, Z, X);
-
-			float deltaX = ceil(spanDDA.start[X]) - spanDDA.start[X];
-			
-			GzIntensity red = ctoi(flatcolor[RED]);
-			GzIntensity green = ctoi(flatcolor[GREEN]);
-			GzIntensity blue = ctoi(flatcolor[BLUE]);
-
-			// Advance span
-			while (spanDDA.current[X] <= spanDDA.end[X]) {
-				spanDDA.current[X] += deltaX;
-				spanDDA.current[Z] = getZCoord(spanDDA.end, spanDDA.start, spanDDA.current[X]);
-
-				int pixelBufferIndex = ARRAY(spanDDA.current[X], spanDDA.current[Y]);
-				if (pixelBufferIndex < totalPixels) { // cull pixels that are not on screen
-					if (spanDDA.current[Z] < pixelbuffer[pixelBufferIndex].z) {
-						GzPut(spanDDA.current[X], spanDDA.current[Y], red, green, blue, 1, spanDDA.current[Z]);
-					}
-				}
-
-				deltaX = 1.0;
-			}
-			deltaY = 1.0;
+			edgeDDA[three].current[X] = getXCoord(edgeDDA[three].start, edgeDDA[three].end, newY);
+			edgeDDA[three].current[Y] = newY;
+			edgeDDA[three].current[Z] = getZCoord(edgeDDA[three].start, edgeDDA[three].end, edgeDDA[three].current[X]);
 		}
+
 	}
 };
 

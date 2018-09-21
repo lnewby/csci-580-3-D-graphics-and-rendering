@@ -162,7 +162,7 @@ int GzRender::GzPutTriangle(int	numParts, GzToken *nameList, GzPointer *valueLis
 	for (unsigned int token = 0; token < numParts; token++) {
 		switch (nameList[token]) {
 		case GZ_POSITION:
-			sortVerticesByY(valueList, ASCEND);
+			sortVerticesByY(valueList);
 			setupEdgeDDAs(valueList);
 			sortEdgesLeftOrRight();
 			advanceEdges();
