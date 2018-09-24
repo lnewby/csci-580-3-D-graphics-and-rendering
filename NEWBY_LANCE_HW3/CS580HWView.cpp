@@ -189,7 +189,7 @@ void CCS580HWView::OnRotate()
 	// TODO: Add your command handler code here
 	CRotateDlg dlg;
 	GzInput* input;
-	GzMatrix	rotMat = 
+	GzMatrix rotMat = 
 	{ 
 		1.0,	0.0,	0.0,	0.0, 
 		0.0,	1.0,	0.0,	0.0, 
