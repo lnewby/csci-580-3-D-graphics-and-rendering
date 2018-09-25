@@ -495,7 +495,7 @@ int GzRender::GzPutTriangle(int	numParts, GzToken *nameList, GzPointer *valueLis
 			GzPushMatrix(vert4x4);
 
 			// ignore triangles with negative z-coord
-			if (Ximage[matlevel][2][0] > -1 && Ximage[matlevel][2][1] > -1 && Ximage[matlevel][2][2] > -1) {
+			if (Ximage[matlevel][2][0] >= 0 && Ximage[matlevel][2][1] >= 0 && Ximage[matlevel][2][2] >= 0) {
 
 				for (unsigned int i = 0; i < 3; ++i) {
 					for (unsigned int j = 0; j < 3; ++j) {
@@ -511,10 +511,11 @@ int GzRender::GzPutTriangle(int	numParts, GzToken *nameList, GzPointer *valueLis
 				setupEdgeDDAs(valueList);
 				sortEdgesLeftOrRight();
 				advanceEdges();
-
-				// Pop model matrix off transformation stack
-				GzPopMatrix();
 			}
+
+			// Pop model matrix off transformation stack
+			GzPopMatrix();
+
 			break;
 		case GZ_NULL_TOKEN:
 			break;
