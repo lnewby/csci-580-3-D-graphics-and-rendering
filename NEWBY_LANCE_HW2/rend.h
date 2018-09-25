@@ -91,6 +91,12 @@ public:
 	int GzPutAttribute(int numAttributes, GzToken *nameList, GzPointer *valueList);
 	int GzPutTriangle(int numParts, GzToken *nameList, GzPointer *valueList);
 	
+	// HW2: Scan line rasterizer methods
+	void setupEdgeDDAs(GzPointer *valueList);
+	void sortEdgesLeftOrRight();
+	void advanceSpan();
+	void advanceEdges();
+
 	// Extra methods: NOT part of API - just for general assistance */
 	inline int ARRAY(int x, int y){return x+(y*xres);}	/* simplify fbuf indexing */
 	inline short ctoi(float color) {return (short)((int)(color * ((1 << 12) - 1)));}		/* convert float color to GzIntensity short */
@@ -167,14 +173,6 @@ public:
 
 		return newZCoord;
 	}
-
-	void setupEdgeDDAs(GzPointer *valueList);
-
-	void sortEdgesLeftOrRight();
-
-	void advanceSpan();
-
-	void advanceEdges();
 };
 
 #endif
