@@ -22,18 +22,13 @@
 #define two	  1
 #define three 2
 
-/* Dummy definition : change it later */
-#ifndef GzLight
-#define GzLight		GzPointer
-#endif
-
 #ifndef GzTexture
 #define GzTexture	GzPointer
 #endif
 
 #ifndef GZ_DDA
 typedef	struct {
-	GzCoord start;
+	GzCoord start;;
 	GzCoord end;
 	GzCoord current;
 	float slopeX;
@@ -56,28 +51,24 @@ public:
 	unsigned int totalPixels;		/* width x height */
 
 	GzCamera		m_camera;
-	short		matlevel;	/* top of stack - current xform */
+	short		    matlevel;	        /* top of stack - current xform */
 	GzMatrix		Ximage[MATLEVELS];	/* stack of xforms (Xsm) */
-	GzMatrix		Xnorm[MATLEVELS];	/* xform for norms (Xim) */
-	GzMatrix		Xsp;		/* NDC to screen (pers-to-screen) */
-	GzColor		flatcolor;    /* color state for flat shaded triangles */
-	GzMatrix identity = {
-		1.0, 0.0, 0.0, 0.0,
-		0.0, 1.0, 0.0, 0.0,
-		0.0, 0.0, 1.0, 0.0,
-		0.0, 0.0, 0.0, 1.0
-	};
+	GzMatrix		Xnorm[MATLEVELS];	/* xforms for norms (Xim) */
+	GzMatrix		Xsp;		        /* NDC to screen (pers-to-screen) */
+	GzColor		flatcolor;          /* color state for flat shaded triangles */
+	GzColor		C;		/* color state for each triangles vertex computed by shading equation */
+	GzColor		vertcolor[3];
 	int			interp_mode;
 	int			numlights;
 	GzLight		lights[MAX_LIGHTS];
 	GzLight		ambientlight;
 	GzColor		Ka, Kd, Ks;
-	float		spec;		/* specular power */
-	GzTexture		tex_fun;  /* tex_fun(float u, float v, GzColor color) */
+	float		    spec;		/* specular power */
+	GzTexture		tex_fun;    /* tex_fun(float u, float v, GzColor color) */
 	GzDDA		edgeDDA[3];
 	GzDDA		spanDDA;
 
-	// Constructors
+  	// Constructors
 	GzRender(int xRes, int yRes);
 	~GzRender();
 
@@ -97,35 +88,42 @@ public:
 	// HW3
 	int GzDefaultCamera();
 	int GzPutCamera(GzCamera camera);
-	int GzPushMatrix(GzMatrix	matrix);
+	int GzPushMatrix(GzMatrix matrix);
 	int GzPopMatrix();
 	
 	// Extra methods: NOT part of API - just for general assistance */
 	inline int ARRAY(int x, int y){return (x+y*xres);}	/* simplify fbuf indexing */
 	inline short	ctoi(float color) {return(short)((int)(color * ((1 << 12) - 1)));}		/* convert float color to GzIntensity short */
 	
-
 	// Object Translation
 	int GzRotXMat(float degree, GzMatrix mat);
 	int GzRotYMat(float degree, GzMatrix mat);
 	int GzRotZMat(float degree, GzMatrix mat);
 	int GzTrxMat(GzCoord translate, GzMatrix mat);
 	int GzScaleMat(GzCoord scale, GzMatrix mat);
-	
+
 	// Homework 2
 	void setupEdgeDDAs(GzPointer *valueList);
 	void sortEdgesLeftOrRight();
-	void advanceSpan();
-	void advanceEdges();
+	void advanceSpan(GzPointer *valueList);
+	void advanceEdges(GzPointer *valueList);
+	void scanLineRender(GzPointer *valueList);
 
 	// Homework 3
 	float degreesToRadians(float degree);
 	void Multiply4x4(GzMatrix mat1, GzMatrix mat2);
-	void setToIdentity(GzMatrix matrix);
 
-	inline float boundColor(float color) {
-		float colorBound = 1.0;
-		return (color <= colorBound) ? color : colorBound;
+	// Homework 4
+	void shadingEquation(GzPointer *normList);
+	void shadingEquation(GzCoord normal);
+	float dotProduct(GzCoord m, GzCoord n);
+
+	inline float boundFloat(float value, float lowerBound, float upperBound) {
+		return (value > upperBound)
+			? upperBound
+			: (value < lowerBound)
+			? lowerBound
+			: value;
 	}
 
 	inline GzIntensity clampColorRange(GzIntensity color) {
@@ -158,14 +156,18 @@ public:
 
 	inline void sortVerticesByY(GzPointer *valueList) {
 		GzCoord * vertex = (GzCoord*)valueList[0];
+		GzCoord * normal = (GzCoord*)valueList[1];
 		if (vertex[one][Y] > vertex[two][Y]) {
 			swapVertices(vertex, one, two);
+			swapVertices(normal, one, two);
 		}
 		if (vertex[one][Y] > vertex[three][Y]) {
 			swapVertices(vertex, one, three);
+			swapVertices(normal, one, three);
 		}
 		if (vertex[two][Y] > vertex[three][Y]) {
 			swapVertices(vertex, two, three);
+			swapVertices(normal, two, three);
 		}
 	}
 
@@ -178,21 +180,70 @@ public:
 	}
 
 	inline float getXCoord(GzCoord vertex1, GzCoord vertex2, float givenY) {
-		float Acoff = vertex2[Y] - vertex1[Y];
-		float Bcoff = vertex1[X] - vertex2[X];
-		float Ccoff = vertex2[X] * vertex1[Y] - vertex1[X] * vertex2[Y];
-		float newXCoord = (-Ccoff - Bcoff * givenY) / Acoff;
+		float Acoeff = vertex2[Y] - vertex1[Y];
+		float Bcoeff = vertex1[X] - vertex2[X];
+		float Ccoeff = vertex2[X] * vertex1[Y] - vertex1[X] * vertex2[Y];
+		float newXCoord = (-Ccoeff - Bcoeff * givenY) / Acoeff;
 
 		return newXCoord;
 	}
 
 	inline float getZCoord(GzCoord vertex1, GzCoord vertex2, float givenX) {
-		float Acoff = vertex2[X] - vertex1[X];
-		float Bcoff = vertex1[Z] - vertex2[Z];
-		float Ccoff = vertex2[Z] * vertex1[X] - vertex1[Z] * vertex2[X];
-		float newZCoord = (-Ccoff - Bcoff * givenX) / Acoff;
+		float Acoeff = vertex2[X] - vertex1[X];
+		float Bcoeff = vertex1[Z] - vertex2[Z];
+		float Ccoeff = vertex2[Z] * vertex1[X] - vertex1[Z] * vertex2[X];
+		float newZCoord = (-Ccoeff - Bcoeff * givenX) / Acoeff;
 
 		return newZCoord;
 	}
+
+	inline void normalizeVector(GzCoord vector) {
+		float magnitude = sqrt((vector[X] * vector[X]) + (vector[Y] * vector[Y]) + (vector[Z] * vector[Z]));
+
+		vector[X] /= magnitude;
+		vector[Y] /= magnitude;
+		vector[Z] /= magnitude;
+	};
+
+	inline void setToIdentity(GzMatrix matrix) {
+		matrix[0][0] = 1.0; matrix[0][1] = 0.0; matrix[0][2] = 0.0; matrix[0][3] = 0.0;
+		matrix[1][0] = 0.0; matrix[1][1] = 1.0; matrix[1][2] = 0.0; matrix[1][3] = 0.0;
+		matrix[2][0] = 0.0; matrix[2][1] = 0.0; matrix[2][2] = 1.0; matrix[2][3] = 0.0;
+		matrix[3][0] = 0.0; matrix[3][1] = 0.0; matrix[3][2] = 0.0; matrix[3][3] = 1.0;
+	}
+
+	inline void removeTranslation(GzMatrix matrix) {
+		matrix[0][3] = 0.0;
+		matrix[1][3] = 0.0;
+		matrix[2][3] = 0.0;
+	}
+
+	inline void removeScale(GzMatrix matrix) {
+		float scaleFactor;
+
+		for (unsigned int i = 0; i < 3; ++i) {
+			scaleFactor = sqrt(matrix[0][i] * matrix[0][i] + matrix[1][i] * matrix[1][i] + matrix[2][i] * matrix[2][i]);
+
+			for (unsigned int j = 0; j < 3; ++j) {
+				matrix[j][i] /= scaleFactor;
+			}
+		}
+	}
+
+	inline void transpose(GzMatrix m) {
+		GzMatrix temp = {
+			m[0][0], m[1][0], m[2][0], m[3][0],
+			m[0][1], m[1][1], m[2][1], m[3][1],
+			m[0][2], m[1][2], m[2][2], m[3][2],
+			m[0][3], m[1][3], m[2][3], m[3][3]
+		};
+
+		for (unsigned int i = 0; i < 4; ++i) {
+			for (unsigned int j = 0; j < 4; ++j) {
+				m[i][j] = temp[i][j];
+			}
+		}
+	}
 };
+
 #endif
