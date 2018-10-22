@@ -159,8 +159,8 @@ GzRender::GzRender(int xRes, int yRes)
 	- setup Xsp and anything only done once
 	- init default camera
 	*/
-	Xsp[0][0] = xRes/2.0f; 	Xsp[0][1] = 0.0f;		Xsp[0][2] = 0.0f;	Xsp[0][3] = xRes/2.0f;
-	Xsp[1][0] = 0.0f;		Xsp[1][1] = -yRes/2.0f;	Xsp[1][2] = 0.0f;	Xsp[1][3] = yRes/2.0f;
+	Xsp[0][0] = xRes / 2.0f; 	Xsp[0][1] = 0.0f;		Xsp[0][2] = 0.0f;	Xsp[0][3] = xRes / 2.0f;
+	Xsp[1][0] = 0.0f;		Xsp[1][1] = -yRes / 2.0f;	Xsp[1][2] = 0.0f;	Xsp[1][3] = yRes / 2.0f;
 	Xsp[2][0] = 0.0f;		Xsp[2][1] = 0.0f;		Xsp[2][2] = MAXINT; Xsp[2][3] = 0.0f;
 	Xsp[3][0] = 0.0f;		Xsp[3][1] = 0.0f;		Xsp[3][2] = 0.0f;	Xsp[3][3] = 1.0f;
 
@@ -191,9 +191,9 @@ int GzRender::GzDefault()
 {
 	/* HW1.3 set pixel buffer to some default values - start a new frame */
 	for (unsigned int key = 0; key < totalPixels; ++key) {
-		pixelbuffer[key].red = 3000;
-		pixelbuffer[key].green = 3000;
-		pixelbuffer[key].blue = 4000;
+		pixelbuffer[key].red = 3135;
+		pixelbuffer[key].green = 3135;
+		pixelbuffer[key].blue = 3871;
 		pixelbuffer[key].alpha = 1;
 		pixelbuffer[key].z = MAXINT;
 	}
@@ -255,10 +255,10 @@ int GzRender::GzBeginRender()
 	m_camera.Xiw[2][0] = normZ[X];	m_camera.Xiw[2][1] = normZ[Y];	m_camera.Xiw[2][2] = normZ[Z];	m_camera.Xiw[2][3] = -1.0f * (normZ[X] * m_camera.position[X] + normZ[Y] * m_camera.position[Y] + normZ[Z] * m_camera.position[Z]);
 	m_camera.Xiw[3][0] = 0.0f;		m_camera.Xiw[3][1] = 0.0f;		m_camera.Xiw[3][2] = 0.0f;		m_camera.Xiw[3][3] = 1.0f;
 
-	m_camera.Xpi[0][0] = 1.0f; 	m_camera.Xpi[0][1] = 0.0f;	m_camera.Xpi[0][2] = 0.0f;					m_camera.Xpi[0][3] = 0.0f;
-	m_camera.Xpi[1][0] = 0.0f;	m_camera.Xpi[1][1] = 1.0f;	m_camera.Xpi[1][2] = 0.0f;					m_camera.Xpi[1][3] = 0.0f;
-	m_camera.Xpi[2][0] = 0.0f;	m_camera.Xpi[2][1] = 0.0f;	m_camera.Xpi[2][2] = tan(FOVinRadians / 2.0);	m_camera.Xpi[2][3] = 0.0f;
-	m_camera.Xpi[3][0] = 0.0f;	m_camera.Xpi[3][1] = 0.0f;	m_camera.Xpi[3][2] = tan(FOVinRadians / 2.0);	m_camera.Xpi[3][3] = 1.0f;
+	m_camera.Xpi[0][0] = 1.0f; 	m_camera.Xpi[0][1] = 0.0f;	m_camera.Xpi[0][2] = 0.0f;						m_camera.Xpi[0][3] = 0.0f;
+	m_camera.Xpi[1][0] = 0.0f;	m_camera.Xpi[1][1] = 1.0f;	m_camera.Xpi[1][2] = 0.0f;						m_camera.Xpi[1][3] = 0.0f;
+	m_camera.Xpi[2][0] = 0.0f;	m_camera.Xpi[2][1] = 0.0f;	m_camera.Xpi[2][2] = tan(FOVinRadians / 2.0f);	m_camera.Xpi[2][3] = 0.0f;
+	m_camera.Xpi[3][0] = 0.0f;	m_camera.Xpi[3][1] = 0.0f;	m_camera.Xpi[3][2] = tan(FOVinRadians / 2.0f);	m_camera.Xpi[3][3] = 1.0f;
 
 	// Push Xform matrices onto Ximage stack. The top of the stack will screen space to world space transform matrix
 	GzPushMatrix(Xsp);
@@ -323,13 +323,14 @@ int GzRender::GzPushMatrix(GzMatrix	matrix)
 		Multiply4x4(Ximage[newLevel], matrix);
 
 		setToIdentity(Xnorm[newLevel]);
-		Multiply4x4(Xnorm[newLevel], Xnorm[matlevel]);
-		Multiply4x4(Xnorm[newLevel], matrix);
 
-		// remove translation from Xnorm top of stack (TOS)
-		removeTranslation(Xnorm[newLevel]);
+		Multiply4x4(Xnorm[newLevel], Xnorm[matlevel]);
+		// remove translation from matrix
+		removeTranslation(matrix);
 		// Remove scale from Xnorm TOS
-		removeScale(Xnorm[newLevel]);
+		removeScale(matrix);
+		// put on top of stack
+		Multiply4x4(Xnorm[newLevel], matrix);
 	}
 
 	// increment to new top of the Ximage stack
@@ -428,12 +429,25 @@ int GzRender::GzFlushDisplay2FrameBuffer()
 	return GZ_SUCCESS;
 }
 
-int GzRender::GzPutAttribute(int numAttributes, GzToken	*nameList, GzPointer *valueList)
+int GzRender::GzPutAttribute(int numAttributes, GzToken	*nameList, GzPointer *valueList) 
 {
-	/* HW 2.1
-	-- Set renderer attribute states (e.g.: GZ_RGB_COLOR default color)
-	-- In later homeworks set shaders, interpolaters, texture maps, and lights
-	*/
+/* HW 2.1
+-- Set renderer attribute states (e.g.: GZ_RGB_COLOR default color)
+-- In later homeworks set shaders, interpolaters, texture maps, and lights
+*/
+
+/*
+- GzPutAttribute() must accept the following tokens/values:
+
+- GZ_RGB_COLOR					GzColor		default flat-shade color
+- GZ_INTERPOLATE				int			shader interpolation mode
+- GZ_DIRECTIONAL_LIGHT			GzLight
+- GZ_AMBIENT_LIGHT            	GzLight		(ignore direction)
+- GZ_AMBIENT_COEFFICIENT		GzColor		Ka reflectance
+- GZ_DIFFUSE_COEFFICIENT		GzColor		Kd reflectance
+- GZ_SPECULAR_COEFFICIENT       GzColor		Ks coef's
+- GZ_DISTRIBUTION_COEFFICIENT   float		spec power
+*/
 	for (unsigned int token = 0; token < numAttributes; ++token) {
 		float *color;
 		GzColor *colorCoefficient;
@@ -441,9 +455,9 @@ int GzRender::GzPutAttribute(int numAttributes, GzToken	*nameList, GzPointer *va
 		switch (nameList[token]) {
 		case GZ_RGB_COLOR:
 			color = (float*)valueList[token];
-			flatcolor[RED] = boundFloat(color[RED], 0.0, 1.0);
-			flatcolor[GREEN] = boundFloat(color[GREEN], 0.0, 1.0);
-			flatcolor[BLUE] = boundFloat(color[BLUE], 0.0, 1.0);
+			flatcolor[RED] = boundFloat(color[RED], 0, 1);
+			flatcolor[GREEN] = boundFloat(color[GREEN], 0, 1);
+			flatcolor[BLUE] = boundFloat(color[BLUE], 0, 1);
 			break;
 		case GZ_INTERPOLATE:
 			interp_mode = *(int *)valueList[token];
@@ -480,7 +494,8 @@ int GzRender::GzPutAttribute(int numAttributes, GzToken	*nameList, GzPointer *va
 		case GZ_DISTRIBUTION_COEFFICIENT:
 			spec = *(float*)valueList[token];
 			break;
-		case GZ_TEXTURE_INDEX:
+		case GZ_TEXTURE_MAP:
+			tex_fun = (GzTexture)valueList[token];
 			break;
 		default:
 			break;
@@ -490,21 +505,21 @@ int GzRender::GzPutAttribute(int numAttributes, GzToken	*nameList, GzPointer *va
 	return GZ_SUCCESS;
 }
 
-float GzRender::dotProduct(GzCoord m, GzCoord n) {
-	return m[0] * n[0] + m[1] * n[1] + m[2] * n[2];
-}
-
-int GzRender::GzPutTriangle(int	numParts, GzToken *nameList, GzPointer *valueList)
+int GzRender::GzPutTriangle(int numParts, GzToken *nameList, GzPointer *valueList)
 /* numParts - how many names and values */
 {
-	/* HW 2.2
-	-- Pass in a triangle description with tokens and values corresponding to
-	GZ_NULL_TOKEN:		do nothing - no values
-	GZ_POSITION:		3 vert positions in model space
-	-- Invoke the rastrizer/scanline framework
-	-- Return error code
-	*/
-	
+/* HW 2.2
+-- Pass in a triangle description with tokens and values corresponding to
+      GZ_NULL_TOKEN:		do nothing - no values
+      GZ_POSITION:		3 vert positions in model space
+-- Return error code
+*/
+/*
+-- Xform positions of verts using matrix on top of stack 
+-- Clip - just discard any triangle with any vert(s) behind view plane 
+		- optional: test for triangles with all three verts off-screen (trivial frustum cull)
+-- invoke triangle rasterizer  
+*/
 	bool isZCoordsAllPositive = false;
 
 	for (unsigned int token = 0; token < numParts; ++token) {
@@ -534,13 +549,13 @@ int GzRender::GzPutTriangle(int	numParts, GzToken *nameList, GzPointer *valueLis
 						vertex[j][i] = Ximage[matlevel][i][j];
 					}
 				}
-				
+
 			}
 
 			// Pop model matrix off transformation stack
 			GzPopMatrix();
 		}
-			break;
+						  break;
 		case GZ_NORMAL: {
 			GzMatrix norm4x4;
 			GzCoord *normal = (GzCoord*)valueList[1];
@@ -549,7 +564,7 @@ int GzRender::GzPutTriangle(int	numParts, GzToken *nameList, GzPointer *valueLis
 			norm4x4[1][0] = normal[one][Y]; norm4x4[1][1] = normal[two][Y]; norm4x4[1][2] = normal[three][Y];	norm4x4[1][3] = 0;
 			norm4x4[2][0] = normal[one][Z]; norm4x4[2][1] = normal[two][Z]; norm4x4[2][2] = normal[three][Z];	norm4x4[2][3] = 0;
 			norm4x4[3][0] = 1;				norm4x4[3][1] = 1;				norm4x4[3][2] = 1;					norm4x4[3][3] = 1;
-			
+
 			GzPushMatrix(norm4x4);
 
 			for (unsigned int i = 0; i < 3; ++i) {
@@ -564,6 +579,19 @@ int GzRender::GzPutTriangle(int	numParts, GzToken *nameList, GzPointer *valueLis
 			//transpose(Xnorm[matlevel]);
 
 			GzPopMatrix();
+		}
+			break;
+		case GZ_TEXTURE_INDEX: {
+		   GzCoord *vertex = (GzCoord*)valueList[0];
+		   GzTextureIndex *vertexUV = (GzTextureIndex*)valueList[2];
+		   float vPrimeZ;
+		   // convert to perspective space for texture perspective correction
+		   for (unsigned int i = 0; i < 3; ++i) {
+			   // get new vertex z prime
+			   vPrimeZ = vertex[i][Z] / (MAXINT - vertex[i][Z]);
+			   vertexUV[i][U] = vertexUV[i][U] / (vPrimeZ + 1);
+			   vertexUV[i][V] = vertexUV[i][V] / (vPrimeZ + 1);
+		   }
 		}
 			break;
 		case GZ_NULL_TOKEN:
@@ -694,13 +722,13 @@ void GzRender::shadingEquation(GzCoord N) {
 		if (computeLightModel) {
 			// Calculate Normal dot Light vector direction
 			NdotL = dotProduct(nPrime, lights[lightIndex].direction);
-			
+
 			// Calculate R (reflection vector) for each light
 			// R = 2(N.L)N - L
 			R[X] = 2 * NdotL * nPrime[X] - lights[lightIndex].direction[X];
 			R[Y] = 2 * NdotL * nPrime[Y] - lights[lightIndex].direction[Y];
 			R[Z] = 2 * NdotL * nPrime[Z] - lights[lightIndex].direction[Z];
-			
+
 			// normalize R
 			normalizeVector(R);
 
@@ -744,6 +772,7 @@ void GzRender::advanceSpan(GzPointer *valueList) {
 	// Get vertice list
 	GzCoord *vertex = (GzCoord *)valueList[0];
 	GzCoord *normal = (GzCoord *)valueList[1];
+	GzTextureIndex *vertexUV = (GzTextureIndex *)valueList[2];
 
 	spanDDA.current[X] = spanDDA.start[X];
 	spanDDA.current[Y] = spanDDA.start[Y];
@@ -759,25 +788,68 @@ void GzRender::advanceSpan(GzPointer *valueList) {
 	GzIntensity green = ctoi(flatcolor[GREEN]);
 	GzIntensity blue = ctoi(flatcolor[BLUE]);
 
-	// interpoluate color
-	GzColor interpColor;
-	GzCoord interpNormal;
-
 	// Interpolate span position and parameters (Z) until current position > end
-	while (spanDDA.current[X] <= spanDDA.end[X]) {
+	while (spanDDA.current[X] < spanDDA.end[X]) {
+		// get new vertex z prime
+		float vPrimeZ = spanDDA.current[Z] / (MAXINT - spanDDA.current[Z]);
 		// Test interpolated-Z against FB-Z for each pixel - low Z wins
 		int currentPixelIndex = ARRAY(spanDDA.current[X], spanDDA.current[Y]);
-		if (currentPixelIndex <  totalPixels && spanDDA.current[Z] < pixelbuffer[currentPixelIndex].z) {
+		if (currentPixelIndex < totalPixels && spanDDA.current[Z] <= pixelbuffer[currentPixelIndex].z) {
 			switch (interp_mode) {
 			case GZ_FLAT:
 				shadingEquation(normal[0]);
-				red = ctoi(C[RED]);
-				green = ctoi(C[GREEN]);
-				blue = ctoi(C[BLUE]);
+				red = ctoi(flatcolor[RED]);
+				green = ctoi(flatcolor[GREEN]);
+				blue = ctoi(flatcolor[BLUE]);
 				break;
 			case GZ_COLOR: {
 				// interpolate color
+				GzColor pixelColor;
+				GzColor texelColor;
 				GzColor vertColor[3];
+				GzTextureIndex interpUV;
+
+				// interpolate u, v
+				for (unsigned int uv = 0; uv < 2; ++uv) {
+					// Calculate normal <A, B, C>
+					GzCoord uv1 = {
+						vertex[three][X] - vertex[one][X],
+						vertex[three][Y] - vertex[one][Y],
+						vertexUV[three][uv] - vertexUV[one][uv]
+					};
+					GzCoord uv2 = {
+						vertex[two][X] - vertex[one][X],
+						vertex[two][Y] - vertex[one][Y],
+						vertexUV[two][uv] - vertexUV[one][uv]
+					};
+
+					// r1 x r2
+					GzCoord uvNormal = {
+						uv1[Y] * uv2[Z] - uv1[Z] * uv2[Y],
+						uv1[Z] * uv2[X] - uv1[X] * uv2[Z],
+						uv1[X] * uv2[Y] - uv1[Y] * uv2[X]
+					};
+
+					float A = uvNormal[X];
+					float B = uvNormal[Y];
+					float C = uvNormal[Z];
+					float D = -(A * vertex[one][X]) - B * vertex[one][Y] - C * vertexUV[one][uv];
+
+					interpUV[uv] = (-(A * spanDDA.current[X]) - (B * spanDDA.current[Y]) - D) / C;
+				}
+
+				// transform interpulate uv from perspective space back to screen space
+				vPrimeZ = spanDDA.current[Z] / (MAXINT - spanDDA.current[Z]);
+				interpUV[U] *= (vPrimeZ + 1);
+				interpUV[V] *= (vPrimeZ + 1);
+
+				// get texel color and set Ka, Kd, and Ks to the interpoluate color
+				tex_fun(interpUV[U], interpUV[V], texelColor);
+
+				for (unsigned int colorComponent = 0; colorComponent < 3; ++colorComponent) {
+					Ka[colorComponent] = Kd[colorComponent] = Ks[colorComponent] = texelColor[colorComponent];
+				}
+				
 				for (unsigned int i = 0; i < 3; ++i) {
 					shadingEquation(normal[i]);
 					vertColor[i][RED] = C[RED];
@@ -810,15 +882,22 @@ void GzRender::advanceSpan(GzPointer *valueList) {
 					float C = colorNormal[Z];
 					float D = -(A * vertex[one][X]) - B * vertex[one][Y] - C * vertColor[one][color];
 
-					interpColor[color] = (-(A * spanDDA.current[X]) - (B * spanDDA.current[Y]) - D) / C;
+					pixelColor[color] = (-(A * spanDDA.current[X]) - (B * spanDDA.current[Y]) - D) / C;
 				}
 
-				red = ctoi(interpColor[RED]);
-				green = ctoi(interpColor[GREEN]);
-				blue = ctoi(interpColor[BLUE]);
+				red = ctoi(pixelColor[RED]);
+				green = ctoi(pixelColor[GREEN]);
+				blue = ctoi(pixelColor[BLUE]);
 			}
 				break;
 			case GZ_NORMALS: {
+				//GzColor interpColor;
+				//GzColor vertColor[3];
+				GzColor pixelColor;
+				GzColor texelColor;
+				GzCoord interpNormal;
+				GzTextureIndex interpUV;
+
 				// interpolate normals
 				for (unsigned int norm = 0; norm < 3; ++norm) {
 					// Calculate normal <A, B, C>
@@ -828,9 +907,9 @@ void GzRender::advanceSpan(GzPointer *valueList) {
 						normal[three][norm] - normal[one][norm]
 					};
 					GzCoord c2 = {
-						vertex[two][X] - vertex[three][X],
-						vertex[two][Y] - vertex[three][Y],
-						normal[two][norm] - normal[three][norm]
+						vertex[two][X] - vertex[one][X],
+						vertex[two][Y] - vertex[one][Y],
+						normal[two][norm] - normal[one][norm]
 					};
 
 					// r1 x r2
@@ -843,61 +922,70 @@ void GzRender::advanceSpan(GzPointer *valueList) {
 					float A = normNormal[X];
 					float B = normNormal[Y];
 					float C = normNormal[Z];
-					float D = -(A * vertex[one][X] + B * vertex[one][Y] + C * normal[one][norm]);
+					float D = -(A * vertex[one][X]) - B * vertex[one][Y] - C * normal[one][norm];
 
-					interpNormal[norm] = -(A * spanDDA.current[X] + B * spanDDA.current[Y] + D) / C;
+					interpNormal[norm] = (-(A * spanDDA.current[X]) - (B * spanDDA.current[Y]) - D) / C;
 				}
 
-				// interpolate color
-				GzColor vertColor[3];
-				for (unsigned int i = 0; i < 3; ++i) {
-					normalizeVector(interpNormal);
-					shadingEquation(interpNormal);
-					vertColor[i][RED] = C[RED];
-					vertColor[i][GREEN] = C[GREEN];
-					vertColor[i][BLUE] = C[BLUE];
-				}
-
-				for (unsigned int color = 0; color < 3; ++color) {
+				// interpolate u, v
+				for (unsigned int uv = 0; uv < 2; ++uv) {
 					// Calculate normal <A, B, C>
-					GzCoord c1 = {
+					GzCoord uv1 = {
 						vertex[three][X] - vertex[one][X],
 						vertex[three][Y] - vertex[one][Y],
-						vertColor[three][color] - vertColor[one][color]
+						vertexUV[three][uv] - vertexUV[one][uv]
 					};
-					GzCoord c2 = {
-						vertex[two][X] - vertex[three][X],
-						vertex[two][Y] - vertex[three][Y],
-						vertColor[two][color] - vertColor[three][color]
+					GzCoord uv2 = {
+						vertex[two][X] - vertex[one][X],
+						vertex[two][Y] - vertex[one][Y],
+						vertexUV[two][uv] - vertexUV[one][uv]
 					};
 
 					// r1 x r2
-					GzCoord colorNormal = {
-						c1[Y] * c2[Z] - c1[Z] * c2[Y],
-						c1[Z] * c2[X] - c1[X] * c2[Z],
-						c1[X] * c2[Y] - c1[Y] * c2[X]
+					GzCoord uvNormal = {
+						uv1[Y] * uv2[Z] - uv1[Z] * uv2[Y],
+						uv1[Z] * uv2[X] - uv1[X] * uv2[Z],
+						uv1[X] * uv2[Y] - uv1[Y] * uv2[X]
 					};
 
-					// normalizeVector(colorNormal);
+					float A = uvNormal[X];
+					float B = uvNormal[Y];
+					float C = uvNormal[Z];
+					float D = -(A * vertex[one][X]) - B * vertex[one][Y] - C * vertexUV[one][uv];
 
-					float A = colorNormal[X];
-					float B = colorNormal[Y];
-					float C = colorNormal[Z];
-					float D = -(A * vertex[one][X]) - B * vertex[one][Y] - C * vertColor[one][color];
-
-					interpColor[color] = (-(A * spanDDA.current[X]) - (B * spanDDA.current[Y]) - D) / C;
+					interpUV[uv] = (-(A * spanDDA.current[X]) - (B * spanDDA.current[Y]) - D) / C;
 				}
 
-				red = ctoi(interpColor[RED]);
-				green = ctoi(interpColor[GREEN]);
-				blue = ctoi(interpColor[BLUE]);
+				// transform interpulate uv from perspective space back to screen space
+				vPrimeZ = spanDDA.current[Z] / (MAXINT - spanDDA.current[Z]);
+				interpUV[U] *= (vPrimeZ + 1);
+				interpUV[V] *= (vPrimeZ + 1);
+
+				// calculate texel color
+				tex_fun(interpUV[U], interpUV[V], texelColor);
+				
+				// set ambient & diffuse coefficient to texel color
+				for (unsigned int colorComponent = 0; colorComponent < 3; ++colorComponent) {
+					Ka[colorComponent] = Kd[colorComponent] = texelColor[colorComponent];
+				}
+
+				// calculate shading for texel color
+				shadingEquation(interpNormal);
+
+				pixelColor[RED] = C[RED];
+				pixelColor[GREEN] = C[GREEN];
+				pixelColor[BLUE] = C[BLUE];
+
+				red = ctoi(pixelColor[RED]);
+				green = ctoi(pixelColor[GREEN]);
+				blue = ctoi(pixelColor[BLUE]);
 			}
 				break;
 			default:
 				break;
 			}
 
-			
+
 			GzPut(spanDDA.current[X], spanDDA.current[Y], red, green, blue, 1, spanDDA.current[Z]);
 		}
 
@@ -920,7 +1008,7 @@ void GzRender::advanceEdges(GzPointer *valueList) {
 	edgeDDA[three].current[Z] = getZCoord(edgeDDA[three].start, edgeDDA[three].end, edgeDDA[three].current[X]);
 
 	// Switch from 1 - 2 edge to 2 - 3 edge when current 1 - 2 edge position > Y(2)	
-	while (edgeDDA[one].current[Y] < edgeDDA[one].end[Y]) {
+	while (edgeDDA[one].current[Y] <= edgeDDA[one].end[Y]) {
 		// Setup span DDA on successive lines based on edge DDA position values
 		// Set span DDA current and end positions to right and left edge values 
 		spanDDA.start[X] = edgeDDA[one].edgeOnLeft ? edgeDDA[one].current[X] : edgeDDA[three].current[X];
@@ -955,7 +1043,7 @@ void GzRender::advanceEdges(GzPointer *valueList) {
 	edgeDDA[three].current[Z] = getZCoord(edgeDDA[three].start, edgeDDA[three].end, edgeDDA[three].current[X]);
 
 	// End advance when current 2 - 3 edge position > Y(3)	
-	while (edgeDDA[two].current[Y] < edgeDDA[two].end[Y]) {
+	while (edgeDDA[two].current[Y] <= edgeDDA[two].end[Y]) {
 		// Setup span DDA on successive lines based on edge DDA position values
 		// Set span DDA current and end positions to right and left edge values 
 		spanDDA.start[X] = edgeDDA[two].edgeOnLeft ? edgeDDA[two].current[X] : edgeDDA[three].current[X];

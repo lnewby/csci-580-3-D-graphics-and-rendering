@@ -1,14 +1,14 @@
-// Application4.cpp: implementation of the Application4 class.
+// Application5.cpp: implementation of the Application5 class.
 //
 //////////////////////////////////////////////////////////////////////
 
 /*
- * application test code for homework assignment 
- */
+ * application test code for homework assignment #5
+*/
 
 #include "stdafx.h"
 #include "CS580HW.h"
-#include "Application4.h"
+#include "Application5.h"
 #include "Gz.h"
 #include "rend.h"
 
@@ -18,8 +18,13 @@ static char THIS_FILE[]=__FILE__;
 #define new DEBUG_NEW
 #endif
 
-#define INFILE  "pot4.asc"
+#define INFILE  "ppot.asc"
 #define OUTFILE "output.ppm"
+
+
+extern int tex_fun(float u, float v, GzColor color); /* image texture function */
+extern int ptex_fun(float u, float v, GzColor color); /* procedural texture function */
+extern int GzFreeTexture();
 
 void shade(GzCoord norm, GzCoord color);
 
@@ -27,28 +32,26 @@ void shade(GzCoord norm, GzCoord color);
 // Construction/Destruction
 //////////////////////////////////////////////////////////////////////
 
-Application4::Application4()
+Application5::Application5()
 {
 
 }
 
-Application4::~Application4()
+Application5::~Application5()
 {
 	Clean();
 }
 
-int Application4::Initialize()
+int Application5::Initialize()
 {
-/* to be filled in by the app if it sets camera params */
-
 	GzCamera	camera;  
-	int		xRes, yRes;		/* display parameters */ 
+	int		    xRes, yRes;	/* display parameters */ 
 
-	GzToken		nameListShader[9]; 	/* shader attribute names */
+	GzToken		nameListShader[9]; 	    /* shader attribute names */
 	GzPointer   valueListShader[9];		/* shader attribute pointers */
 	GzToken     nameListLights[10];		/* light info */
 	GzPointer   valueListLights[10];
-	int		shaderType, interpStyle;
+	int			shaderType, interpStyle;
 	float		specpower;
 	int		status; 
  
@@ -62,14 +65,13 @@ int Application4::Initialize()
 	/* 
 	 * initialize the display and the renderer 
 	 */ 
-
-	m_nWidth = 256;	 	// frame buffer and display width
-	m_nHeight = 256;	// frame buffer and display height
+ 	m_nWidth = 256;		// frame buffer and display width
+	m_nHeight = 256;    // frame buffer and display height
 
 	m_pRender = new GzRender(m_nWidth, m_nHeight);
 	m_pRender->GzDefault();
 
-	m_pFrameBuffer = m_pRender->framebuffer;
+	m_pFrameBuffer = m_pRender->framebuffer; 
 
 /* Translation matrix */
 GzMatrix	scale = 
@@ -96,20 +98,20 @@ GzMatrix	rotateY =
 	0.0,	0.0,	0.0,	1.0 
 }; 
 
-#if 0 	/* set up app-defined camera if desired, else use camera defaults */
-	camera.position[X] = 13.2;      
-  	camera.position[Y] = -8.7;
-  	camera.position[Z] = -14.8;
+#if 1 	/* set up app-defined camera if desired, else use camera defaults */
+    camera.position[X] = -3;
+    camera.position[Y] = -25;
+    camera.position[Z] = -4;
 
-  	camera.lookat[X] = 0.8;
-  	camera.lookat[Y] = 0.7;
-  	camera.lookat[Z] = 4.5;
+    camera.lookat[X] = 7.8;
+    camera.lookat[Y] = 0.7;
+    camera.lookat[Z] = 6.5;
 
-  	camera.worldup[X] = -0.2;
-  	camera.worldup[Y] = 1.0;
-  	camera.worldup[Z] = 0.0;
+    camera.worldup[X] = -0.2;
+    camera.worldup[Y] = 1.0;
+    camera.worldup[Z] = 0.0;
 
-	camera.FOV = 53.7;              /* degrees */
+    camera.FOV = 63.7;              /* degrees *              /* degrees */
 
 	status |= m_pRender->GzPutCamera(camera); 
 #endif 
@@ -157,13 +159,10 @@ GzMatrix	rotateY =
 	* Select either GZ_COLOR or GZ_NORMALS as interpolation mode  
 	*/
         nameListShader[1]  = GZ_INTERPOLATE;
-#if 0
-        interpStyle = GZ_COLOR;         /* Gouraud shading */
-#else 
-        interpStyle = GZ_NORMALS;       /* Phong shading */
-#endif
-
+        //interpStyle = GZ_COLOR;         /* Gouraud shading */
+        interpStyle = GZ_NORMALS;         /* Phong shading */
         valueListShader[1] = (GzPointer)&interpStyle;
+
         nameListShader[2]  = GZ_AMBIENT_COEFFICIENT;
         valueListShader[2] = (GzPointer)ambientCoefficient;
         nameListShader[3]  = GZ_SPECULAR_COEFFICIENT;
@@ -172,11 +171,18 @@ GzMatrix	rotateY =
         specpower = 32;
         valueListShader[4] = (GzPointer)&specpower;
 
-	status |= m_pRender->GzPutAttribute(5, nameListShader, valueListShader);
+        nameListShader[5]  = GZ_TEXTURE_MAP;
+#if 0   /* set up null texture function or valid pointer */
+        valueListShader[5] = (GzPointer)0;
+#else
+        valueListShader[5] = (GzPointer)(tex_fun);	/* or use ptex_fun */
+#endif
+        status |= m_pRender->GzPutAttribute(6, nameListShader, valueListShader);
+
 
 	status |= m_pRender->GzPushMatrix(scale);  
 	status |= m_pRender->GzPushMatrix(rotateY); 
-	status |= m_pRender->GzPushMatrix(rotateX);
+	status |= m_pRender->GzPushMatrix(rotateX); 
 
 	if (status) exit(GZ_FAILURE); 
 
@@ -186,18 +192,15 @@ GzMatrix	rotateY =
 		return(GZ_SUCCESS); 
 }
 
-int Application4::Render() 
+int Application5::Render() 
 {
 	GzToken		nameListTriangle[3]; 	/* vertex attribute names */
 	GzPointer	valueListTriangle[3]; 	/* vertex attribute pointers */
-	GzToken		nameListColor[3];		/* color type names */
-	GzPointer	valueListColor[3];	/* color type rgb pointers */
-	GzCoord		vertexList[3];		/* vertex position coordinates */ 
-	GzCoord		normalList[3];		/* vertex normals */ 
-	GzTextureIndex  uvList[3];		/* vertex texture map indices */ 
-	GzColor		color; 
+	GzCoord		vertexList[3];	/* vertex position coordinates */ 
+	GzCoord		normalList[3];	/* vertex normals */ 
+	GzTextureIndex  	uvList[3];		/* vertex texture map indices */ 
 	char		dummy[256]; 
-	int		status; 
+	int			status; 
 
 
 	/* Initialize Display */
@@ -208,19 +211,20 @@ int Application4::Render()
 	*/ 
 	nameListTriangle[0] = GZ_POSITION; 
 	nameListTriangle[1] = GZ_NORMAL; 
-	 
+	nameListTriangle[2] = GZ_TEXTURE_INDEX;  
+
 	// I/O File open
 	FILE *infile;
 	if( (infile  = fopen( INFILE , "r" )) == NULL )
 	{
-         AfxMessageBox(_T("The input file was not opened\n" ));
+         AfxMessageBox( "The input file was not opened\n" );
 		 return GZ_FAILURE;
 	}
 
 	FILE *outfile;
 	if( (outfile  = fopen( OUTFILE , "wb" )) == NULL )
 	{
-         AfxMessageBox(_T("The output file was not opened\n" ));
+         AfxMessageBox( "The output file was not opened\n" );
 		 return GZ_FAILURE;
 	}
 
@@ -249,23 +253,14 @@ int Application4::Render()
 		&(uvList[2][0]), &(uvList[2][1]) ); 
 
 	    /* 
-	    * Set up shading attributes for each triangle 
-		* Only used for Flat shading
-	    */ 
-	    shade(normalList[0], color);/* shade based on the norm of vert0 */
-	    valueListColor[0] = (GzPointer)color; 
-	    nameListColor[0] = GZ_RGB_COLOR; 
-	    m_pRender->GzPutAttribute(1, nameListColor, valueListColor); 
- 
-	    /* 
 	     * Set the value pointers to the first vertex of the 	
 	     * triangle, then feed it to the renderer 
 	     * NOTE: this sequence matches the nameList token sequence
 	     */ 
-	    valueListTriangle[0] = (GzPointer)vertexList; 
-		valueListTriangle[1] = (GzPointer)normalList; 
-
-	    m_pRender->GzPutTriangle(2, nameListTriangle, valueListTriangle); 
+	     valueListTriangle[0] = (GzPointer)vertexList; 
+		 valueListTriangle[1] = (GzPointer)normalList; 
+		 valueListTriangle[2] = (GzPointer)uvList; 
+		 m_pRender->GzPutTriangle(3, nameListTriangle, valueListTriangle); 
 	} 
 
 	m_pRender->GzFlushDisplay2File(outfile); 	/* write out or update display to file*/
@@ -287,39 +282,21 @@ int Application4::Render()
 		return(GZ_SUCCESS); 
 }
 
-int Application4::Clean()
+int Application5::Clean()
 {
 	/* 
 	 * Clean up and exit 
 	 */ 
+	int	status = 0; 
 
 	free(m_pRender);
-
-	return(GZ_SUCCESS);
+	status |= GzFreeTexture();
+	
+	if (status) 
+		return(GZ_FAILURE); 
+	else 
+		return(GZ_SUCCESS);
 }
 
-/* 
-This doesn't really belong in the application program, but for this 
-simplified case of a renderer that doesn't do any shading itself, this 
-is the easiest place to put it.
-*/
-
-void shade(GzCoord norm, GzCoord color)
-{
-  GzCoord	light;
-  float		coef;
-
-  light[0] = 0.707f;
-  light[1] = 0.5f;
-  light[2] = 0.5f;
-
-  coef = light[0]*norm[0] + light[1]*norm[1] + light[2]*norm[2];
-  if (coef < 0) 	coef *= -1;
-
-  if (coef > 1.0)	coef = 1.0;
-  color[0] = coef*0.95f;
-  color[1] = coef*0.65f;
-  color[2] = coef*0.88f;
-}
 
 
