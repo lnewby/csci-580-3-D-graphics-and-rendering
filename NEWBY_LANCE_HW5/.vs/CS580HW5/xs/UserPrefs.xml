@@ -1,0 +1,14 @@
+﻿<Properties>
+  <MonoDevelop.Ide.Workbench ActiveDocument="../../580RTXProject/Assets/Raytracing_SC_TEST01.cs">
+    <Files>
+      <File FileName="../../580RTXProject/Assets/Raytracing_SC_TEST01.cs" Line="1" Column="1" />
+      <File FileName="../../580RTXProject/Assets/RaytracingShader.compute" Line="1" Column="1" />
+    </Files>
+  </MonoDevelop.Ide.Workbench>
+  <MonoDevelop.Ide.Workspace ActiveConfiguration="Debug|x86" />
+  <MonoDevelop.Ide.DebuggingService.Breakpoints>
+    <BreakpointStore />
+  </MonoDevelop.Ide.DebuggingService.Breakpoints>
+  <MonoDevelop.Ide.DebuggingService.PinnedWatches />
+  <MultiItemStartupConfigurations />
+</Properties>
